@@ -1,15 +1,25 @@
 import time
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from getChessURLs import ChessArchiveUrlGenerator
+from datetime import date
+from selenium.webdriver.chrome.options import Options
 
-driver = webdriver.Chrome('../bin/chromedriver')
-#driver.get("https://www.python.org")
+options = Options()
+#options.headless = True
+CHROMEDRIVER_PATH = "../bin/chromedriver"
+CHROMEDRIVER_PATH = "../bin/SeleniumWebDrivers/geckodriver"
+#driver = webdriver.Chrome(CHROMEDRIVER_PATH, chrome_options=options)
+driver = webdriver.Firefox()
+
 #driver.get("https://www.chess.com")
 driver.get("https://www.chess.com/login_and_go")
 elem = driver.find_element_by_id("username")
 elem.send_keys("fun_man")
+#elem.send_keys("7whatsthat")
 elem = driver.find_element_by_id("password")
 elem.send_keys("chessflares")
+#elem.send_keys("whatsthat")
 elem.send_keys(Keys.RETURN)
 c = 0
 
@@ -21,6 +31,33 @@ url = "https://www.chess.com/games/archive?gameOwner=my_game&gameType=recent&end
 
 url = "https://www.chess.com/games/archive?gameOwner=my_game&gameType=recent&endDate%5Bdate%5D=06%2F15%2F2020&startDate%5Bdate%5D=06%2F08%2F2020&timeSort=desc"
 
+url_gen = ChessArchiveUrlGenerator()
+url_gen.reset(date(2020,4,16), date(2020,6,1))
+
+url = url_gen.getNextUrl()
+print ("Got this url -> ", url)
+
+def close_all_windows_except_first(driver, main_window):
+    for tab in driver.window_handles:
+        if tab != main_window:
+            driver.switch_to_window(tab)
+            driver.close()
+    driver.switch_to_window(main_window)
+
+def open_new_tabs(driver):
+    elems = driver.find_elements_by_class_name("archive-games-link")
+    i = 0
+    open_tab = 0
+    for elem in elems:
+        if i == 2:
+            break
+        i = i + 1
+        if elem.text == "Analyze":
+            print(elem.text, elem.get_attribute('href'))
+            elem.send_keys(Keys.COMMAND + Keys.RETURN)
+            open_tab = open_tab + 1
+    return open_tab
+
 while True:
     driver.get(url)
     main_window = driver.current_window_handle
@@ -28,48 +65,22 @@ while True:
     driver.execute_script("window.scrollTo(0, 500)")
     c = c + 1
     print("Clicking Analyse Game...", c)
-    elems = driver.find_elements_by_class_name("archive-games-link")
-    i = 0
-    open_tab = 0
-    for elem in elems:
-        if i == 8:
-            break
-        i = i + 1
-        print(elem.text)
-        if elem.text == "Analyze":
-            elem.send_keys(Keys.COMMAND + Keys.RETURN)
-            open_tab = open_tab + 1
+    open_tab = open_new_tabs(driver)
 
     if open_tab == 0:
-        print("No more analysis links found.. terminating")
-        exit(0)
-    """
-    links = [elem.get_attribute('href') for elem in elems]
-    print(links)
-    i = 1
-    for link in links:
-        if "analysis" in link:
-            driver.find_element_by_tag_name('body').send_keys(Keys.COMMAND+ Keys.TAB)
-            i = i + 1
-        if i == 5:
-            break
-    time.sleep(5)
-    browser.switch_to_window(main_window)
-    """
+        print("No more analysis links found.. changing url")
+        url = url_gen.getNextUrl()
+        if url == None:
+            exit()
+        continue
 
     print(driver.window_handles)
 
-    # Close all tabs
-    time.sleep(20)
-    def close_all_windows_except_first():
-        for tab in driver.window_handles:
-            if tab != main_window:
-                driver.switch_to_window(tab)
-                driver.close()
-        driver.switch_to_window(main_window)
-
-    close_all_windows_except_first()
-
-    #elem = driver.find_element_by_class_name("modal-close")
     print("Sleeping 20 seconds")
+    time.sleep(60)
+
+    print("Closing tabs..")
+    close_all_windows_except_first(driver, main_window)
+
+    print("Sleeping 2 seconds")
     time.sleep(2)
