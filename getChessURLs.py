@@ -12,7 +12,7 @@ class ChessArchiveUrlGenerator:
         self.url  = self.url.replace("<USER>", self.user)
 
         self.one_days = timedelta(1,0,0)
-        self.seven_days = timedelta(7,0,0)
+        self.seven_days = timedelta(2,0,0)
 
         self.query_range_days = self.seven_days
 

@@ -1,86 +1,99 @@
 import time
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 from getChessURLs import ChessArchiveUrlGenerator
 from datetime import date
-from selenium.webdriver.chrome.options import Options
+from WebDrivers import WebDrivers
+from selenium.webdriver.common.keys import Keys
 
-options = Options()
-#options.headless = True
-CHROMEDRIVER_PATH = "../bin/chromedriver"
-CHROMEDRIVER_PATH = "../bin/SeleniumWebDrivers/geckodriver"
-#driver = webdriver.Chrome(CHROMEDRIVER_PATH, chrome_options=options)
-driver = webdriver.Firefox()
+MAX_ITERATIONS = 80
+SLEEP_TIME = 30
+MAX_ACTIVE_TABS = 12
 
-#driver.get("https://www.chess.com")
-driver.get("https://www.chess.com/login_and_go")
-elem = driver.find_element_by_id("username")
-elem.send_keys("fun_man")
-#elem.send_keys("7whatsthat")
-elem = driver.find_element_by_id("password")
-elem.send_keys("chessflares")
-#elem.send_keys("whatsthat")
-elem.send_keys(Keys.RETURN)
-c = 0
+class ChessDotComHandler:
+    def __init__(self):
+        self.driver = WebDrivers.chrome_driver()
+        self.url_gen = ChessArchiveUrlGenerator()
+        self.url_gen.reset(date(2020,4,18), date(2020,7,15))
+        self.terminate_main_loop = False
 
-url = "https://www.chess.com/games/archive/fun_man"
-url = "https://www.chess.com/games/archive/fun_man?gameOwner=other_game&gameType=recent&endDate%5Bdate%5D=07%2F10%2F2020&startDate%5Bdate%5D=07%2F06%2F2020&timeSort=desc"
-url = "https://www.chess.com/games/archive?gameOwner=my_game&gameType=recent&endDate%5Bdate%5D=07%2F05%2F2020&startDate%5Bdate%5D=06%2F23%2F2020&timeSort=desc"
+        self.accounts = {
+                "fun_man": {"username" : "fun_man", "password" : "chessflares"},
+                "7whatsthat": {"username" : "7whatsthat", "password" : "whatsthat"}
+                }
 
-url = "https://www.chess.com/games/archive?gameOwner=my_game&gameType=recent&endDate%5Bdate%5D=06%2F23%2F2020&startDate%5Bdate%5D=06%2F15%2F2020&timeSort=desc"
+    def run(self):
+        try:
+            self.mainLoop()
+        finally:
+            self.driver.quit()
 
-url = "https://www.chess.com/games/archive?gameOwner=my_game&gameType=recent&endDate%5Bdate%5D=06%2F15%2F2020&startDate%5Bdate%5D=06%2F08%2F2020&timeSort=desc"
+    def mainLoop(self):
+        self.login_to_chesscom(self.accounts["fun_man"])
 
-url_gen = ChessArchiveUrlGenerator()
-url_gen.reset(date(2020,4,16), date(2020,6,1))
+        self.active_archive_url = self.url_gen.getNextUrl()
+        for i in range(MAX_ITERATIONS):
+            if not self.terminate_main_loop:
+                self.check_chess_arhives_page()
+                import code
+                code.interact(local=locals())
+            else:
+                self.driver.close()
 
-url = url_gen.getNextUrl()
-print ("Got this url -> ", url)
+    def login_to_chesscom(self, account):
+        self.driver.get("https://www.chess.com/login_and_go")
 
-def close_all_windows_except_first(driver, main_window):
-    for tab in driver.window_handles:
-        if tab != main_window:
-            driver.switch_to_window(tab)
-            driver.close()
-    driver.switch_to_window(main_window)
+        elem = self.driver.find_element_by_id("username")
+        elem.send_keys(account["username"])
+        elem = self.driver.find_element_by_id("password")
+        elem.send_keys(account["password"])
 
-def open_new_tabs(driver):
-    elems = driver.find_elements_by_class_name("archive-games-link")
-    i = 0
-    open_tab = 0
-    for elem in elems:
-        if i == 2:
-            break
-        i = i + 1
-        if elem.text == "Analyze":
-            print(elem.text, elem.get_attribute('href'))
-            elem.send_keys(Keys.COMMAND + Keys.RETURN)
-            open_tab = open_tab + 1
-    return open_tab
+        elem.send_keys(Keys.RETURN)
 
-while True:
-    driver.get(url)
-    main_window = driver.current_window_handle
+    def check_chess_arhives_page(self):
+        if self.active_archive_url == None:
+            self.terminate_main_loop = True
+            return
 
-    driver.execute_script("window.scrollTo(0, 500)")
-    c = c + 1
-    print("Clicking Analyse Game...", c)
-    open_tab = open_new_tabs(driver)
+        self.driver.get(self.active_archive_url)
 
-    if open_tab == 0:
-        print("No more analysis links found.. changing url")
-        url = url_gen.getNextUrl()
-        if url == None:
-            exit()
-        continue
+        main_window = self.driver.current_window_handle
 
-    print(driver.window_handles)
+        num_tabs_open = self.open_new_analyse_tabs()
 
-    print("Sleeping 20 seconds")
-    time.sleep(60)
+        if num_tabs_open == 0:
+            print("No more analysis links found in this page.. changing url")
+            self.active_archive_url = self.url_gen.getNextUrl()
+            if self.active_archive_url== None:
+                self.terminate_main_loop = True
+            return
 
-    print("Closing tabs..")
-    close_all_windows_except_first(driver, main_window)
+        print("Sleeping %s seconds" %SLEEP_TIME)
+        time.sleep(SLEEP_TIME)
 
-    print("Sleeping 2 seconds")
-    time.sleep(2)
+        self.close_all_windows(except_windows = [main_window])
+
+    def open_new_analyse_tabs(self):
+        elems = self.driver.find_elements_by_class_name("archive-games-link")
+        i = 0
+        num_open_tabs = 0
+        for elem in elems:
+            if i == MAX_ACTIVE_TABS:
+                break
+            i = i + 1
+            if elem.text == "Analyze":
+                print(elem.text, elem.get_attribute('href'))
+                elem.send_keys(Keys.COMMAND + Keys.RETURN)
+                num_open_tabs = num_open_tabs + 1
+        print(self.driver.window_handles)
+        return num_open_tabs
+
+    def close_all_windows(self, except_windows = []):
+        for tab in self.driver.window_handles:
+            if tab not in except_windows:
+                self.driver.switch_to_window(tab)
+                self.driver.close()
+        if len(except_windows):
+            self.driver.switch_to_window(except_windows[0])
+
+if __name__ == "__main__":
+    handler = ChessDotComHandler()
+    handler.run()
