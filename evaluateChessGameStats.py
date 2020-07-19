@@ -50,10 +50,10 @@ class ChessGameAnalyser:
             print (white_kills)
             print (black_kills_pct)
             print (white_kills_pct)
-            print ("Total black kills : ", sum(total_black_kills),
-                    ", Avg kills per game : ", avg_black_kills_per_game)
-            print ("Total white kills : ", sum(total_white_kills),
-                    ", Avg kills per game : ", avg_white_kills_per_game)
+            print ("Total black %s : " % self.name, sum(total_black_kills),
+                    ", Avg %s per game : " % self.name, avg_black_kills_per_game)
+            print ("Total white %s : " % self.name, sum(total_white_kills),
+                    ", Avg %s per game : " % self.name, avg_white_kills_per_game)
 
     def __init__(self):
         self.counters = {
@@ -98,6 +98,7 @@ class ChessGameAnalyser:
 
             parsed_game = parser.parse(game_pgn, actions=pgn.Actions())
             self.get_game_kill_stats(parsed_game.movetext, parsed_game.tag_pairs["White"] == user)
+            self.get_game_move_stats(parsed_game.movetext, parsed_game.tag_pairs["White"] == user)
 
     def get_game_kill_stats(self, movelist, is_white):
         counter = self.counters["kills"]
@@ -118,6 +119,26 @@ class ChessGameAnalyser:
                     piece = 'P'
                 piece = piece.upper() if is_white else piece.lower()
                 counter.pieceSheet[piece] = counter.pieceSheet[piece] + 1
+        pass
+
+    def get_game_move_stats(self, movelist, is_white):
+        counter = self.counters["moves"]
+        white_moves = [m.white.san for m in movelist if m.white.san != ""]
+        black_moves = [m.black.san for m in movelist if m.black.san != ""]
+
+        moves = white_moves if is_white else black_moves
+        if is_white:
+            counter.num_white_games = counter.num_white_games + 1
+        else:
+            counter.num_black_games = counter.num_black_games + 1
+
+        for move in moves:
+            if move[0].upper() in ['R', 'B', 'N', 'Q', 'K']:
+                piece = move[0]
+            else:
+                piece = 'P'
+            piece = piece.upper() if is_white else piece.lower()
+            counter.pieceSheet[piece] = counter.pieceSheet[piece] + 1
         pass
 
 if __name__ == "__main__":
