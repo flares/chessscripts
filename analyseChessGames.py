@@ -12,44 +12,81 @@ import cachedHTTPRequests
 ARCHIVES_LIST_API = "https://api.chess.com/pub/player/<USER>/games/archives"
 
 class ChessGameAnalyser:
-    def __init__(self):
-        self.kills = {
-                'p':0, 'r':0, 'n':0, 'b':0, 'q':0, 'k':0,
-                'P':0, 'R':0, 'N':0, 'B':0, 'Q':0, 'K':0
-                }
-        self.num_white_games = 0
-        self.num_black_games = 0
+    class GameCounter:
+        def __init__(self, name, description = ""):
+            self.cleanup()
+            self.name = name
+            self.description = description
 
-    def fetchAllAvailableArchives(self):
-        apiUrl = ARCHIVES_LIST_API.replace("<USER>", self.user)
-        print ("Fetching from ", apiUrl)
-        url_data = requests.get(apiUrl)
-        print(url_data.text)
-        archive_list = json.loads(url_data.text)["archives"]
-        return archive_list
+        def cleanup(self):
+            self.pieceSheet = {
+                    'p':0, 'r':0, 'n':0, 'b':0, 'q':0, 'k':0,
+                    'P':0, 'R':0, 'N':0, 'B':0, 'Q':0, 'K':0
+                    }
+            self.num_white_games = 0
+            self.num_black_games = 0
+
+        def pretty_print(self):
+            print ("------------", self.name, '-----------')
+            total_black_kills = [self.pieceSheet[piece] for piece in self.pieceSheet if piece.islower()]
+            total_white_kills = [self.pieceSheet[piece] for piece in self.pieceSheet if piece.isupper()]
+
+            black_kills = {piece:self.pieceSheet[piece] for piece in self.pieceSheet if piece.islower()}
+            white_kills = {piece:self.pieceSheet[piece] for piece in self.pieceSheet if piece.isupper()}
+
+            if sum(total_black_kills) != 0:
+                black_kills_pct = {piece:str(round(self.pieceSheet[piece]*100/sum(total_black_kills), 2))+" %" for piece in self.pieceSheet if piece.islower()}
+            else:
+                black_kills_pct = {piece:"0 %" for piece in self.pieceSheet if piece.islower()}
+            if sum(total_white_kills) != 0:
+                white_kills_pct = {piece:str(round(self.pieceSheet[piece]*100/sum(total_white_kills), 2))+" %" for piece in self.pieceSheet if piece.isupper()}
+            else:
+                white_kills_pct = {piece:"0 %" for piece in self.pieceSheet if piece.isupper()}
+
+            avg_white_kills_per_game = round((sum(total_black_kills) / self.num_black_games),2) if self.num_black_games != 0 else 0
+            avg_black_kills_per_game = round((sum(total_white_kills) / self.num_white_games),2) if self.num_white_games != 0 else 0
+
+            print (black_kills)
+            print (white_kills)
+            print (black_kills_pct)
+            print (white_kills_pct)
+            print ("Total black kills : ", sum(total_black_kills),
+                    ", Avg kills per game : ", avg_black_kills_per_game)
+            print ("Total white kills : ", sum(total_white_kills),
+                    ", Avg kills per game : ", avg_white_kills_per_game)
+
+    def __init__(self):
+        self.counters = {
+                "kills" : self.GameCounter("Kills", "Number of kills by a piece"),
+                "moves" : self.GameCounter("Moves", "Number of moves by a piece")
+                }
 
     def run(self, user):
         self.user = user
-        #self.cleanup()
-
+        self.cleanup()
         archive_list = self.fetchAllAvailableArchives()
-
         for archive in archive_list:
             monthly_archive_data = cachedHTTPRequests.get(archive)
             self.parseAndEvaluateMonthlyData(user, json.loads(monthly_archive_data.text)["games"])
 
         self.pretty_print_stats()
 
+    def fetchAllAvailableArchives(self):
+        apiUrl = ARCHIVES_LIST_API.replace("<USER>", self.user)
+        print ("Fetching from ", apiUrl)
+        url_data = requests.get(apiUrl)
+        archive_list = json.loads(url_data.text)["archives"]
+        return archive_list
+
     def pretty_print_stats(self):
-        print ("=========== Chess Stats of ", user, " ===============")
+        print ("=========== Chess Stats of ", self.user, " ===============")
+        for counter in self.counters:
+            self.counters[counter].pretty_print()
 
-        total_black_kills = [kills[piece] for piece in kills if piece.islower()]
-        total_white_kills = [kills[piece] for piece in kills if piece.isupper()]
-
-        black_kills_pct = {piece:str(round(kills[piece]*100/sum(total_black_kills), 2))+" %" for piece in kills if piece.islower()}
-        white_kills_pct = {piece:str(round(kills[piece]*100/sum(total_white_kills), 2))+" %" for piece in kills if piece.isupper()}
-        print (black_kills_pct, ", total black kills : ", sum(total_black_kills), sum(total_black_kills) * 100 / num_black_games)
-        print (white_kills_pct, ", total white kills : ", sum(total_white_kills), sum(total_white_kills) * 100 / num_white_games)
+    def cleanup(self):
+        for counter in self.counters:
+            self.counters[counter].cleanup()
+        print()
 
     def parseAndEvaluateMonthlyData(self, user, game_list):
         for game in game_list:
@@ -60,31 +97,19 @@ class ChessGameAnalyser:
                 continue
 
             parsed_game = parser.parse(game_pgn, actions=pgn.Actions())
-            import code
-            code.interact(local=locals())
+            self.get_game_kill_stats(parsed_game.movetext, parsed_game.tag_pairs["White"] == user)
 
-            #get_game_stats(parsed_game.movetext, parsed_game.tag_pairs["White"] == user)
-
-
-        print ("Total games : ", len(parsed_data), ", Pgn missing :", pgn_missing_counter, ", Variant games : ",  variant_game_counter)
-
-    def get_game_stats(movelist, is_white):
-        global kills
-        #print ("Analysing game stats as user is ", is_white)
+    def get_game_kill_stats(self, movelist, is_white):
+        counter = self.counters["kills"]
         white_moves = [m.white.san for m in movelist if m.white.san != ""]
         black_moves = [m.black.san for m in movelist if m.black.san != ""]
 
         moves = white_moves if is_white else black_moves
-        global num_white_games
-        global num_black_games
-        global kills
         if is_white:
-            num_white_games = num_white_games + 1
+            counter.num_white_games = counter.num_white_games + 1
         else:
-            num_black_games = num_black_games + 1
+            counter.num_black_games = counter.num_black_games + 1
 
-        import code
-        code.interact(local=locals())
         for move in moves:
             if 'x' in move:
                 if move[0] in ['R', 'B', 'N', 'Q', 'K']:
@@ -92,10 +117,10 @@ class ChessGameAnalyser:
                 else:
                     piece = 'P'
                 piece = piece.upper() if is_white else piece.lower()
-                kills[piece] = kills[piece] + 1
+                counter.pieceSheet[piece] = counter.pieceSheet[piece] + 1
         pass
-
 
 if __name__ == "__main__":
     chessGameAnalyser = ChessGameAnalyser()
     chessGameAnalyser.run("Subramanyam782")
+    chessGameAnalyser.run("fun_man")

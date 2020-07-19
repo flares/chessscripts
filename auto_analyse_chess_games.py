@@ -6,13 +6,15 @@ from selenium.webdriver.common.keys import Keys
 
 MAX_ITERATIONS = 80
 SLEEP_TIME = 30
-MAX_ACTIVE_TABS = 12
+MAX_ACTIVE_TABS = 3
+START_DATE = date(2020,4,18)
+END_DATE = date(2020,7,15)
 
 class ChessDotComHandler:
     def __init__(self):
         self.driver = WebDrivers.chrome_driver()
         self.url_gen = ChessArchiveUrlGenerator()
-        self.url_gen.reset(date(2020,4,18), date(2020,7,15))
+        self.url_gen.reset(START_DATE, END_DATE)
         self.terminate_main_loop = False
 
         self.accounts = {
