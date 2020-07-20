@@ -22,3 +22,18 @@ def counter(pattern_length):
 
 for i in range(1,10):
     print (" %s --> " % i, counter(i))
+
+
+"""
+Output of the script
+$ python count_screenlock_patterns.py
+ 1 -->  9
+ 2 -->  56
+ 3 -->  320
+ 4 -->  1624
+ 5 -->  7152
+ 6 -->  26016
+ 7 -->  72912
+ 8 -->  140704
+ 9 -->  140704
+"""
