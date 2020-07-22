@@ -4,7 +4,7 @@ from datetime import *
 import re
 
 user = "Subramanyam782"
-url = "https://www.chess.com/games/archive/<USER>?gameOwner=other_game&gameType=recent&timeSort=asc&endDate%5Bdate%5D=<END_DATE>&startDate%5Bdate%5D=<START_DATE>"
+url = "https://www.chess.com/games/archive/<USER>?gameOwner=other_game&gameType=recent&timeSort=asc&endDate%5Bdate%5D=<END_DATE>&startDate%5Bdate%5D=<START_DATE>&page=<PAGE>"
 url  = url.replace("<USER>", user)
 
 one_days = timedelta(1,0,0)
@@ -19,6 +19,7 @@ granular_end_date = today
 
 gameList = None
 
+url = url.replace('<PAGE>', 0)
 
 granular_fetch = False
 num_queries = 0

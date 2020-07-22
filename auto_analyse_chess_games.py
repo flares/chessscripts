@@ -45,8 +45,10 @@ class ChessDotComHandler:
 
         elem = self.driver.find_element_by_id("username")
         elem.send_keys(account["username"])
+        time.sleep(2)
         elem = self.driver.find_element_by_id("password")
         elem.send_keys(account["password"])
+        time.sleep(4)
 
         elem.send_keys(Keys.RETURN)
 
